@@ -1,21 +1,16 @@
-from typing import Union
+import uvicorn
+from fastapi import FastAPI
 
+from core.config import settings
 
-class Calculator:
-
-    def devide(self, x: Union[int | float], y: Union[int | float]) -> int | float:
-        if not isinstance(x, (int| float)) or not isinstance(y, (int | float)):
-            raise TypeError("не правельный формат данных")
-        if y == 0:
-            raise ZeroDivisionError("на ноль делить нельзя")
-        return x / y
-
-    def add(self, x: Union[int | float], y: Union[int | float]) -> int | float:
-        if not isinstance(x, (int| float)) or not isinstance(y, (int | float)):
-            raise TypeError("не правельный формат данных")
-        return x + y
+my_app = FastAPI()
 
 
 
 if __name__ == '__main__':
-    calculator = Calculator()
+    print(settings.model_dump())
+    uvicorn.run('main:my_app',
+                host=settings.run.host,
+                port=int(settings.run.port),
+                reload=True)
+
