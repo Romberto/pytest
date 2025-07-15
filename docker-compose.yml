@@ -6,27 +6,13 @@ services:
     container_name: fastapi_db
     restart: always
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: dbname
-
-  web:
-    build: .
-    container_name: fastapi_app
-    restart: always
-    command: uvicorn src.main:my_app --host 0.0.0.0 --port 8000 --reload
-    ports:
-      - "8000:8000"
-    volumes:
-      - .:/app
-    depends_on:
-      - db
-    env_file:
-      - .env  # <-- лежит в корне
 
 volumes:
   postgres_data:
