@@ -20,3 +20,10 @@ class DishUpdate(BaseModel):
     id: UUID
     name: Optional[str]
     price: Optional[int | float]
+
+    @field_validator('price', mode='after')
+    @classmethod
+    def is_more_zero(cls, price):
+        if price <= 0:
+            raise ValueError("цена должна быть больше нуля")
+        return price
