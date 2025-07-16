@@ -1,8 +1,11 @@
+from pathlib import Path
+
 from pydantic import BaseModel, PostgresDsn
 from pydantic_settings import  BaseSettings, SettingsConfigDict
-
+env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 class DataBaseConfig(BaseModel):
     url: PostgresDsn
+    test_url: PostgresDsn
     echo: bool = False
     echo_pool: bool = False
     max_overflow: int = 10
@@ -17,6 +20,7 @@ class DataBaseConfig(BaseModel):
 class RunConfig(BaseModel):
     host:str = "0.0.0.0"
     port:int = 8000
+    debug:int = 1
 
 
 class Settings(BaseSettings):
@@ -24,7 +28,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
         env_nested_delimiter="__",
         env_prefix="APP_CONFIG__",
-        env_file='../.env'
+        env_file=str(env_path)
         )
     db: DataBaseConfig
     run:RunConfig = RunConfig()
