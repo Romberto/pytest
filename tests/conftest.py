@@ -2,9 +2,11 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.crud.dish import DishCRUD
 from core.config import settings
 from models import Base
 from models.db_helper import DataBaseHelper
+from shemas.dish import DishCreate
 
 # Создаём test db_helper
 test_db_helper = DataBaseHelper(
@@ -35,3 +37,14 @@ async def session(prepare_database) -> AsyncSession:
     """Открывает сессию на время теста."""
     async with test_db_helper.session_factory() as session:
         yield session
+
+
+@pytest.fixture(scope='function')
+async def add_dishes(session:AsyncSession):
+    dishes = [
+        DishCreate(name="frfefe", price=12),
+        DishCreate(name="deded", price=23.43),
+        DishCreate(name="frefrfe", price=34),
+        ]
+    for dish in dishes:
+        await DishCRUD(session).add_dish(dish)

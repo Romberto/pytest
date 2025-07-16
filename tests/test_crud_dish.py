@@ -1,9 +1,10 @@
 from contextlib import nullcontext as does_not_raise
 from decimal import Decimal
+from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.crud.dish import DishCRUD
@@ -29,7 +30,7 @@ async def test_add_multiple_dishes(session: AsyncSession):
     result = await session.execute(select(DishModel))
     dishes = result.scalars().all()
 
-    assert len(dishes) == 3
+    assert len(dishes) == len(dishes_to_add)
 
 
 @pytest.mark.parametrize(
@@ -64,3 +65,26 @@ async def test_add_dish(name, price, expected, session: AsyncSession):
         assert dish_from_db.name == name
 
         assert Decimal(str(dish_from_db.price)) == Decimal(str(price))
+
+
+@pytest.mark.anyio
+async def test_get_all_dish(session: AsyncSession, add_dishes):
+    result = await session.execute(select(DishModel))
+    count = result.scalars().all()
+    dish = await DishCRUD(session).get_all_dish()
+    assert count == dish
+
+@pytest.mark.anyio
+async def test_get_by_id(session:AsyncSession, add_dishes):
+    result = await session.execute(select(DishModel))
+    first_dish = result.scalars().first()
+    dish = await DishCRUD(session).get_by_id(first_dish.id)
+    assert dish.id == first_dish.id
+
+
+@pytest.mark.anyio
+async def test_invalid_uuid_raises():
+    with pytest.raises(ValueError):
+        UUID("")
+
+
