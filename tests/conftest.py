@@ -24,6 +24,9 @@ def anyio_backend():
 @pytest.fixture(scope='session')
 async def prepare_database():
     """Создаёт все таблицы и удаляет после завершения сессии."""
+    if settings.run.debug != 1:
+        pytest.exit("❌ Запуск тестов разрешён только в режиме DEBUG (settings.run.debug == 1)", returncode=1)
+
     async with test_db_helper.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
