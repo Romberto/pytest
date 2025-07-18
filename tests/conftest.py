@@ -1,11 +1,15 @@
 # tests/conftest.py
+from uuid import uuid4
+
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.crud.dish import DishCRUD
 from core.config import settings
-from models import Base
-from models.db_helper import DataBaseHelper
+from main import my_app
+from models import Base, DishModel
+from models.db_helper import DataBaseHelper, db_helper
 from shemas.dish import DishCreate
 
 # Создаём test db_helper
@@ -34,6 +38,29 @@ async def prepare_database():
         await conn.run_sync(Base.metadata.drop_all)
     await test_db_helper.dispose()
 
+@pytest.fixture(scope="function")
+async def add_dishes_to_db(session: AsyncSession):
+    dishes_data = [
+        {"name": "Item1", "price": 12},
+        {"name": "Item2", "price": 23.43},
+        {"name": "Item3", "price": 34},
+    ]
+    dishes = []
+    for data in dishes_data:
+        dish = DishModel(name=data["name"], price=data["price"])
+        session.add(dish)
+        dishes.append(dish)
+
+    await session.commit()
+
+    yield [
+        {"id": str(dish.id), "name": dish.name, "price": float(dish.price)}
+        for dish in dishes
+    ]
+    for dish in dishes:
+        await session.delete(dish)
+        await session.commit()
+
 
 @pytest.fixture(scope='function')
 async def session(prepare_database) -> AsyncSession:
@@ -42,12 +69,14 @@ async def session(prepare_database) -> AsyncSession:
         yield session
 
 
-@pytest.fixture(scope='function')
-async def add_dishes(session:AsyncSession):
-    dishes = [
-        DishCreate(name="frfefe", price=12),
-        DishCreate(name="deded", price=23.43),
-        DishCreate(name="frefrfe", price=34),
-        ]
-    for dish in dishes:
-        await DishCRUD(session).add_dish(dish)
+
+
+
+
+@pytest.fixture(autouse=True)
+def override_get_db(session: AsyncSession):
+    my_app.dependency_overrides[db_helper.session_getter] = lambda: session
+    yield
+    my_app.dependency_overrides = {}
+
+

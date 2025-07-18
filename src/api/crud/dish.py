@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import select, delete
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.dish import DishModel
@@ -18,11 +18,20 @@ class DishCRUD:
         return result.scalars().all()
 
     async def add_dish(self, payload: DishCreate):
-        dish = DishModel(name=payload.name, price=payload.price)
-        self.session.add(dish)
-        await self.session.commit()
-        await self.session.refresh(dish)
-        return dish
+        try:
+            dish = DishModel(name=payload.name, price=payload.price)
+            self.session.add(dish)
+            await self.session.commit()
+            await self.session.refresh(dish)
+            return dish
+        except IntegrityError:
+            await self.session.rollback()
+            raise HTTPException(status_code=400, detail=f"Блюдо с именем '{payload.name}' уже существует")
+        except Exception as e:
+            await self.session.rollback()
+            raise HTTPException(status_code=500, detail=f"Ошибка при добавлении в базу: {e}")
+
+
 
     async def get_by_id(self, dish_id: UUID) -> DishModel | None:
         result = await self.session.execute(

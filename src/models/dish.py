@@ -8,6 +8,6 @@ from models.base import Base
 
 class DishModel(Base):
     __tablename__ = "dish"
-    name:Mapped[str]
+    name:Mapped[str]=mapped_column(unique=True)
     price:Mapped[Decimal] = mapped_column(DECIMAL(10,2))
 

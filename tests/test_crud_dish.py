@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.functions import count, func
 
 from api.crud.dish import DishCRUD
 from models.dish import DishModel
@@ -15,32 +16,35 @@ from tests.conftest import session
 
 @pytest.mark.anyio
 async def test_add_multiple_dishes(session: AsyncSession):
-    crud = DishCRUD(session)
-
+    result = await session.execute(select(func.count()).select_from(DishModel))
+    start_count = result.scalars().one()
     dishes_to_add = [
-        DishCreate(name="Pizza", price=12.5),
-        DishCreate(name="Tomatos", price=20),
-        DishCreate(name="Chice", price=12.45),
+        DishCreate(name="Pizj", price=12.5),
+        DishCreate(name="Tomato", price=20),
+        DishCreate(name="Chic", price=12.45),
         ]
 
     # Добавляем все 3 блюда
     for dish_data in dishes_to_add:
-        await crud.add_dish(dish_data)
+        await DishCRUD(session).add_dish(dish_data)
 
     # Получаем все блюда из БД
-    result = await session.execute(select(DishModel))
-    dishes = result.scalars().all()
+    result_all = await session.execute(select(DishModel))
+    dishes = result_all.scalars().all()
 
-    assert len(dishes) == len(dishes_to_add)
+    assert start_count != len(dishes)
+    assert start_count == len(dishes) - len(dishes_to_add)
 
 
 @pytest.mark.parametrize(
     "name, price, expected", [
-        ("Pizza", 12.5, does_not_raise()),
-        ("Tomatos", 20, does_not_raise()),
-        ('Chice', 12.45, does_not_raise()),
-        ("Rom", -23, pytest.raises(ValueError)),
-        ("RTH", "12", does_not_raise()),
+        ("Pizzadf", 12.5, does_not_raise()),
+        ("Tomatosfdd", 20, does_not_raise()),
+        ('Chicefcx', 12.45, does_not_raise()),
+        ('Chice2', 1234567891.45, pytest.raises(ValidationError)),
+        ("Rome", -23, pytest.raises(ValidationError)),
+        ("Rom", -23, pytest.raises(ValidationError)),
+        ("RTHwe", "12", does_not_raise()),
         ("fdgt", "one", pytest.raises(ValidationError)),
         ('frtgfdd', "32.56", does_not_raise()),
         ('deewedwedwe', "23,43", pytest.raises(ValidationError)),
@@ -52,7 +56,6 @@ async def test_add_dish(name, price, expected, session: AsyncSession):
         crud = DishCRUD(session)
         payload = DishCreate(name=name, price=price)
         dish = await crud.add_dish(payload)
-
         assert dish.id is not None
         assert dish.name == name
         expected_price = Decimal(str(price))
@@ -69,7 +72,7 @@ async def test_add_dish(name, price, expected, session: AsyncSession):
 
 
 @pytest.mark.anyio
-async def test_get_all_dish(session: AsyncSession, add_dishes):
+async def test_get_all_dish(session: AsyncSession, add_dishes_to_db):
     result = await session.execute(select(DishModel))
     count = result.scalars().all()
     dish = await DishCRUD(session).get_all_dish()
@@ -77,17 +80,11 @@ async def test_get_all_dish(session: AsyncSession, add_dishes):
 
 
 @pytest.mark.anyio
-async def test_get_by_id(session: AsyncSession, add_dishes):
-    result = await session.execute(select(DishModel))
-    first_dish = result.scalars().first()
-    dish = await DishCRUD(session).get_by_id(first_dish.id)
-    assert dish.id == first_dish.id
-
-
-@pytest.mark.anyio
-async def test_get_by_id_invalid_uuid_raises():
-    with pytest.raises(ValueError):
-        UUID("")
+async def test_get_by_id(session: AsyncSession, add_dishes_to_db):
+    TEST_DISH = add_dishes_to_db[0]
+    if TEST_DISH:
+        dish = await DishCRUD(session).get_by_id(TEST_DISH['id'])
+        assert dish.id == UUID(TEST_DISH['id'])
 
 
 @pytest.mark.parametrize(
@@ -95,12 +92,12 @@ async def test_get_by_id_invalid_uuid_raises():
         ("newName", 50, does_not_raise()),
         ("RTUH", 23.54, does_not_raise()),
         ('derfd', 34.5, does_not_raise()),
-        ("4ererds45", -34, pytest.raises(ValueError)),
+        ("4ererds45", -34, pytest.raises(ValidationError)),
         ('frerd', 'dsfsdfs', pytest.raises(ValidationError)),
         ],
     )
 @pytest.mark.anyio
-async def test_update(session: AsyncSession, add_dishes, name, price, expected_raise):
+async def test_update(session: AsyncSession, add_dishes_to_db, name, price, expected_raise):
     # Получаем первую запись
     with expected_raise:
         result = await session.execute(select(DishModel))
@@ -123,7 +120,7 @@ async def test_update(session: AsyncSession, add_dishes, name, price, expected_r
 
 
 @pytest.mark.anyio
-async def test_delete(session: AsyncSession, add_dishes):
+async def test_delete(session: AsyncSession, add_dishes_to_db):
     result = await session.execute(select(DishModel))
     deleted_dish = result.scalars().first()
     if not deleted_dish:
@@ -133,4 +130,3 @@ async def test_delete(session: AsyncSession, add_dishes):
     assert deleted_dish.id == deleted_dish_id
     check = await session.get(DishModel, deleted_dish_id)
     assert check is None
-
